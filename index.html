@@ -1,0 +1,1941 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CaeNonogram</title>
+<style>
+  :root {
+    --cell: clamp(16px, calc((100vw - 64px) / 18), 26px);
+    --bg: #eaeff3;
+    --card: #ffffff;
+    --ink: #2c3e50;
+    --muted: #7f8c9a;
+    --accent: #5b7c99;
+    --accent-hover: #4a6a85;
+    --accent-ink: #ffffff;
+    --line: #dce3ea;
+    --err: #c0503f;
+    --ok: #4a7c59;
+    --thick-border: #b0bcc8;
+  }
+  @media (max-width: 600px) {
+    :root {
+      --cell: clamp(14px, calc((100vw - 32px) / 18), 22px);
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: var(--bg);
+    margin: 0; padding: 24px;
+    color: var(--ink);
+    user-select: none;
+    -webkit-font-smoothing: antialiased;
+  }
+  @media (max-width: 600px) {
+    body { padding: 12px; }
+  }
+  .wrap { max-width: 1000px; margin: 0 auto; }
+  h1 { font-size: 20px; margin: 0 0 4px; color: var(--accent-hover); }
+  .subtitle {
+    font-size: 14px; color: var(--muted); margin: 0 0 6px;
+    font-weight: 400; letter-spacing: 0.3px; line-height: 1.3;
+  }
+  .subtitle + .subtitle { margin-top: -4px; }
+
+  .panel {
+    background: var(--card); color: var(--ink);
+    border: 1px solid var(--line); border-radius: 12px;
+    padding: 16px 20px;
+    box-shadow: 0 1px 3px rgba(44,62,80,.06);
+    margin-bottom: 16px;
+  }
+  @media (max-width: 600px) {
+    .panel { padding: 12px 14px; }
+  }
+  .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+  .row:last-child { margin-bottom: 0; }
+  label { font-size: 14px; color: var(--muted); }
+
+  select, button {
+    font-size: 14px; padding: 8px 12px; border-radius: 9px;
+    border: 1px solid var(--line); background: #fff; color: var(--ink);
+    font-family: inherit; outline: none;
+    transition: border-color .15s, box-shadow .15s, background .15s, color .15s;
+    min-width: 0;
+  }
+  @media (max-width: 600px) {
+    select, button { font-size: 13px; padding: 7px 10px; }
+  }
+  select { cursor: pointer; }
+  input:focus, select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(91,124,153,.18);
+  }
+  button { cursor: pointer; }
+  button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+  button:disabled { opacity: .42; cursor: not-allowed; }
+  button.primary {
+    background: var(--accent); border-color: var(--accent);
+    color: var(--accent-ink); font-weight: 600;
+  }
+  button.primary:hover:not(:disabled) {
+    background: var(--accent-hover); border-color: var(--accent-hover);
+    color: var(--accent-ink);
+  }
+  button.active {
+    background: var(--accent); border-color: var(--accent);
+    color: var(--accent-ink); font-weight: 600;
+  }
+  #design.active {
+    background: var(--accent); border-color: var(--accent);
+    color: #fff; font-weight: 600;
+  }
+  #autoBtn.active {
+    background: #C9A6F0; border-color: #C9A6F0; color: #4a2a6b;
+  }
+
+  #status { font-size: 13px; color: var(--muted); }
+  #result { font-size: 14px; line-height: 1.8; color: var(--muted); }
+
+  .grid-scroll {
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 8px;
+    max-width: 100%;
+  }
+  #grid {
+    display: grid;
+    justify-content: start;
+    width: max-content;
+  }
+  .cell { width: var(--cell); height: var(--cell); }
+  .clue {
+    display: flex; align-items: center; justify-content: flex-end;
+    font-size: clamp(9px, calc(var(--cell) * 0.46), 12px);
+    color: var(--ink); padding-right: 3px;
+    transition: color .15s;
+  }
+  .cluec {
+    display: flex; align-items: flex-end; justify-content: center;
+    font-size: clamp(9px, calc(var(--cell) * 0.46), 12px);
+    color: var(--ink); padding-bottom: 3px;
+    transition: color .15s;
+  }
+  .game {
+    border: 1px solid var(--line); background: #fff; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: clamp(12px, calc(var(--cell) * 0.8), 20px);
+    font-weight: bold; line-height: 1;
+    position: relative;
+  }
+  .game:hover { outline: 2px solid #b8c2cc; outline-offset: -2px; }
+
+  .thick-top    { border-top: 2px solid var(--thick-border) !important; }
+  .thick-left   { border-left: 2px solid var(--thick-border) !important; }
+  .thick-bottom { border-bottom: 2px solid var(--thick-border) !important; }
+  .thick-right  { border-right: 2px solid var(--thick-border) !important; }
+
+  .color-row { gap: 20px; }
+  #palette, #clearButtons { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  .color-btn {
+    width: 30px; height: 30px; border-radius: 6px;
+    padding: 0; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px; font-weight: 700; color: var(--ink);
+    transition: transform .1s, box-shadow .15s, border-color .15s;
+    border: 2px solid transparent;
+  }
+  .color-btn:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(44,62,80,.18);
+    color: var(--ink);
+    border-color: var(--accent) !important;
+  }
+  .color-btn.selected { box-shadow: 0 0 0 2px rgba(91,124,153,.45); }
+
+  .tag {
+    display: inline-block; padding: 2px 10px; border-radius: 999px;
+    font-size: 13px; font-weight: 600;
+  }
+  .tag.green  { background: #e6f1e8; color: #3f6b4a; }
+  .tag.blue   { background: #e4edf4; color: #3d5d78; }
+  .tag.orange { background: #f5ece0; color: #86603a; }
+  .tag.purple { background: #f0e4fb; color: #7a3fb0; }
+
+  .brush-group button {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 44px; height: 44px; padding: 0; font-size: 0;
+    background: #fff; border: 1px solid var(--line); border-radius: 10px;
+    transition: border-color .15s, box-shadow .15s, background .15s;
+    position: relative;
+  }
+  .brush-group button:hover:not(:disabled) {
+    border-color: var(--accent);
+    box-shadow: 0 2px 8px rgba(44,62,80,.12);
+    color: var(--accent);
+  }
+  .brush-group button.active {
+    background: var(--accent); border-color: var(--accent); color: #fff;
+  }
+  .brush-group button::before {
+    content: ""; display: block; width: 22px; height: 22px;
+    background-size: contain; background-repeat: no-repeat;
+    background-position: center;
+  }
+  .brush-group button[data-brush="mouse"]::before {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235b7c99' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='6' y='2' width='12' height='20' rx='6'/%3E%3Cline x1='12' y1='6' x2='12' y2='12'/%3E%3C/svg%3E");
+  }
+  .brush-group button[data-brush="mouse"].active::before {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='6' y='2' width='12' height='20' rx='6'/%3E%3Cline x1='12' y1='6' x2='12' y2='12'/%3E%3C/svg%3E");
+  }
+  .brush-group button[data-brush="fill"]::before {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%235b7c99' stroke='%235b7c99' stroke-width='1'%3E%3Crect x='5' y='5' width='14' height='14' rx='2'/%3E%3C/svg%3E");
+  }
+  .brush-group button[data-brush="fill"].active::before {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23ffffff' stroke='%23ffffff' stroke-width='1'%3E%3Crect x='5' y='5' width='14' height='14' rx='2'/%3E%3C/svg%3E");
+  }
+  .brush-group button[data-brush="cross"]::before {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235b7c99' stroke-width='3' stroke-linecap='round'%3E%3Cline x1='6' y1='6' x2='18' y2='18'/%3E%3Cline x1='18' y1='6' x2='6' y2='18'/%3E%3C/svg%3E");
+  }
+  .brush-group button[data-brush="cross"].active::before {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='3' stroke-linecap='round'%3E%3Cline x1='6' y1='6' x2='18' y2='18'/%3E%3Cline x1='18' y1='6' x2='6' y2='18'/%3E%3C/svg%3E");
+  }
+  .brush-group button[data-brush="hint"]::before {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235b7c99' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 18h6'/%3E%3Cpath d='M10 22h4'/%3E%3Cpath d='M12 2a7 7 0 0 0-7 7c0 2.4 1.2 4.5 3 5.7V17h8v-2.3c1.8-1.2 3-3.3 3-5.7a7 7 0 0 0-7-7z'/%3E%3C/svg%3E");
+  }
+  .brush-group button[data-brush="hint"].active::before {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 18h6'/%3E%3Cpath d='M10 22h4'/%3E%3Cpath d='M12 2a7 7 0 0 0-7 7c0 2.4 1.2 4.5 3 5.7V17h8v-2.3c1.8-1.2 3-3.3 3-5.7a7 7 0 0 0-7-7z'/%3E%3C/svg%3E");
+  }
+
+  #solveStatus { font-size: 15px; font-weight: 600; color: var(--ok); }
+  #designHint { color: var(--muted); }
+
+  #autoPanel[hidden] { display: none; }
+  #successBox[hidden] { display: none; }
+  #autoPanel .auto-title {
+    font-size: 13px; color: var(--muted); margin-bottom: 8px;
+    letter-spacing: 0.3px;
+  }
+  #autoPanel .auto-phase {
+    font-size: 13px; color: #7a3fb0; font-weight: 600; margin-left: 8px;
+  }
+  #autoPanel .auto-hint {
+    font-size: 12px; color: var(--muted); margin-top: 6px;
+    line-height: 1.6;
+  }
+
+  /* 滑条行 */
+  .size-control {
+    display: flex; align-items: center; gap: 12px;
+    font-size: 13px; color: var(--muted);
+    margin-top: 10px; padding-top: 10px;
+    border-top: 1px solid var(--line);
+  }
+  .size-control[hidden] { display: none; }
+  .size-control input[type="range"] {
+    flex: 1; min-width: 100px; max-width: 400px;
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+  .size-control .size-val {
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
+    font-weight: 600;
+    min-width: 42px;
+  }
+
+  .footer {
+    text-align: center; font-size: 13px; color: var(--muted); padding: 8px 0 24px;
+  }
+  .footer a { color: var(--accent); text-decoration: none; font-weight: 600; }
+  .footer a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>CaeNonogram</h1>
+  <p class="subtitle">只是一个数织生成器</p>
+  <p class="subtitle">可以在工具栏删除对应颜色的标记，所以可以不同的颜色推测</p>
+  <p class="subtitle">禁止绘制淫秽物品(?</p>
+
+  <div class="panel">
+    <div class="row">
+      <label></label>
+      <select id="size">
+        <option value="5">5 × 5</option>
+        <option value="10" selected>10 × 10</option>
+        <option value="15">15 × 15</option>
+      </select>
+      <label></label>
+      <select id="target">
+        <option value="logic" selected>无需假设</option>
+        <option value="oneGuess">一次假设</option>
+        <option value="hard">多次假设</option>
+      </select>
+      <button id="gen" class="primary">生成数织</button>
+      <button id="reset">清空标记</button>
+      <button id="design">设计模式</button>
+      <button id="finishDesign" class="primary" hidden>完成</button>
+      <button id="exportBtn">导出</button>
+      <button id="importBtn">导入</button>
+      <input type="file" id="importFile" accept=".json,application/json" hidden>
+      <span id="status"></span>
+    </div>
+    <div id="result"></div>
+  </div>
+
+  <div class="panel">
+    <div id="playTools">
+      <div class="row">
+        <label>工具</label>
+        <div class="brush-group">
+          <button data-brush="mouse" class="active" title="左键涂色 / 右键×"></button>
+          <button data-brush="fill" title="涂色"></button>
+          <button data-brush="cross" title="×"></button>
+          <button data-brush="hint" title="提示"></button>
+        </div>
+      </div>
+      <div class="row color-row">
+        <div id="palette"></div>
+        <div id="clearButtons"></div>
+      </div>
+      <div class="row">
+        <div id="solveStatus"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="grid-scroll">
+      <div id="grid"></div>
+    </div>
+    <div class="size-control" id="sizeControl" hidden>
+      <span>大小</span>
+      <input type="range" id="cellSize" min="12" max="40" step="1" value="26">
+      <span class="size-val" id="cellSizeVal">26px</span>
+    </div>
+  </div>
+
+  <div class="panel" id="successBox" hidden>
+    <div id="successText" style="text-align:center; font-size:16px; font-weight:700; color:var(--ok);"></div>
+  </div>
+
+  <div class="panel" id="autoPanel" hidden>
+    <div class="auto-title">NonoAI</div>
+    <div class="row">
+      <button id="autoFixBtn">进行一个错的纠</button>
+      <button id="autoStepBtn">帮帮我! 人机大人!</button>
+      <button id="autoBtn" style="background:#f8f0ff; border-color:#d9b8ff; color:#6b3fa0;">我不做人辣!</button>
+      <span id="autoPhase" class="auto-phase"></span>
+    </div>
+  </div>
+
+  <div class="footer">
+    <span>
+      本页面由Bilibili<a href="https://space.bilibili.com/3494377901001494" target="_blank" rel="noopener noreferrer">@可莱缇西娅</a>开发
+    </span>
+  </div>
+</div>
+
+<script>
+/* ====================== 常量 ====================== */
+const MARK_EMPTY = 0, MARK_FILL = 1, MARK_CROSS = 2;
+const UNKNOWN = 0, BLACK = 1, WHITE = 2;
+
+/* 托管专用颜色（浅紫系） */
+const AUTO_FILL_COLOR   = '#E8D5F5';   // 确定（L0 传播）
+const AUTO_SIMPLE_COLOR = '#D9B8FF';   // 简单假设（L1 单点探测结论）
+const AUTO_DEEP_COLOR   = '#F3E8FF';   // 深层假设（L2 假设路径）
+const AUTO_STROKE       = '#9B6DD6';
+const AUTO_CROSS_TEXT   = '#7A4DB8';
+
+const AUTO_ERROR_COLOR  = '#FAD2D2';
+const AUTO_ERROR_STROKE = '#C0503F';
+
+const PALETTE = [
+  '#ED88C1', '#FFD6EF', '#A8C9F8', '#D3ECFF', '#9EC1D9', '#FEFAE9',
+];
+const STROKE_COLORS = [
+  '#c45a96', '#dda7cb', '#7a9fd0', '#a8c4e0', '#6f9ab8', '#d8d2b8',
+];
+
+const HINT_COLOR = '#2c3e50';
+const CLUE_DONE_COLOR = '#b8c2cc';
+
+const AUTO_STEP_MS = 300;
+
+/* ====================== 全局状态 ====================== */
+let puzzle = null;
+let mode = 'play';
+let design = null;
+let designCellEls = [];
+let designPainting = false;
+let designPaintValue = 0;
+
+let currentBrush = 'mouse';
+let currentColor = 0;
+let cellEls = [];
+let rowClueCells = [];
+let colClueCells = [];
+
+let painting = false;
+let paintAction = null;
+let paintedThisDrag = new Set();
+
+let autoTimer = null;
+let autoRunning = false;
+let currentSolver = null;
+
+/* ====================== 行枚举 ====================== */
+const permCache = new Map();
+
+function enumerateLine(len, clue) {
+  if (clue.length === 0) return [new Array(len).fill(0)];
+  const res = [];
+  const cur = new Array(len).fill(0);
+  const suffix = new Array(clue.length + 1).fill(0);
+  for (let i = clue.length - 1; i >= 0; i--) suffix[i] = suffix[i + 1] + clue[i];
+  function rec(ci, pos) {
+    if (ci === clue.length) { res.push(cur.slice()); return; }
+    const bl = clue[ci];
+    const restCount = clue.length - ci - 1;
+    const minRest = restCount > 0 ? suffix[ci + 1] + restCount : 0;
+    const maxStart = len - bl - minRest;
+    for (let start = pos; start <= maxStart; start++) {
+      for (let k = pos; k < start; k++) cur[k] = 0;
+      for (let k = start; k < start + bl; k++) cur[k] = 1;
+      rec(ci + 1, start + bl + 1);
+      for (let k = start; k < start + bl; k++) cur[k] = 0;
+    }
+    for (let k = pos; k < len; k++) cur[k] = 0;
+  }
+  rec(0, 0);
+  return res;
+}
+
+function getPerms(len, clue) {
+  const key = len + '|' + clue.join(',');
+  let v = permCache.get(key);
+  if (!v) { v = enumerateLine(len, clue); permCache.set(key, v); }
+  return v;
+}
+
+function lineStep(board, size, start, step, clue, changedList) {
+  const perms = getPerms(size, clue);
+  const anyBlack = new Array(size).fill(false);
+  const anyWhite = new Array(size).fill(false);
+  let cnt = 0;
+  for (let pi = 0; pi < perms.length; pi++) {
+    const p = perms[pi];
+    let ok = true;
+    for (let i = 0; i < size; i++) {
+      const v = board[start + i * step];
+      if (v === BLACK && p[i] === 0) { ok = false; break; }
+      if (v === WHITE && p[i] === 1) { ok = false; break; }
+    }
+    if (!ok) continue;
+    cnt++;
+    for (let i = 0; i < size; i++) {
+      if (p[i]) anyBlack[i] = true; else anyWhite[i] = true;
+    }
+  }
+  if (cnt === 0) return -1;
+  let changed = false;
+  for (let i = 0; i < size; i++) {
+    const idx = start + i * step;
+    if (board[idx] !== UNKNOWN) continue;
+    if (anyBlack[i] && !anyWhite[i]) {
+      board[idx] = BLACK; changed = true;
+      if (changedList) changedList.push(idx);
+    } else if (!anyBlack[i] && anyWhite[i]) {
+      board[idx] = WHITE; changed = true;
+      if (changedList) changedList.push(idx);
+    }
+  }
+  return changed ? 1 : 0;
+}
+
+function fullPropagate(board, size, rowClues, colClues) {
+  const b = board.slice();
+  let anyChange = false;
+  let progress = true;
+  while (progress) {
+    progress = false;
+    for (let r = 0; r < size; r++) {
+      const res = lineStep(b, size, r * size, 1, rowClues[r], null);
+      if (res < 0) return { board: b, conflict: true, changed: anyChange };
+      if (res > 0) { progress = true; anyChange = true; }
+    }
+    for (let c = 0; c < size; c++) {
+      const res = lineStep(b, size, c, size, colClues[c], null);
+      if (res < 0) return { board: b, conflict: true, changed: anyChange };
+      if (res > 0) { progress = true; anyChange = true; }
+    }
+  }
+  return { board: b, conflict: false, changed: anyChange };
+}
+
+/* ====================== 线索 / 分析 ====================== */
+function computeClues(pattern, size) {
+  const rowClues = [], colClues = [];
+  for (let r = 0; r < size; r++) {
+    const cl = []; let run = 0;
+    for (let c = 0; c < size; c++) {
+      if (pattern[r * size + c]) run++;
+      else if (run) { cl.push(run); run = 0; }
+    }
+    if (run) cl.push(run);
+    rowClues.push(cl);
+  }
+  for (let c = 0; c < size; c++) {
+    const cl = []; let run = 0;
+    for (let r = 0; r < size; r++) {
+      if (pattern[r * size + c]) run++;
+      else if (run) { cl.push(run); run = 0; }
+    }
+    if (run) cl.push(run);
+    colClues.push(cl);
+  }
+  return { rowClues, colClues };
+}
+
+let nodes = 0;
+const NODE_LIMIT = 300000;
+
+function countSolutions(board, size, rowClues, colClues, maxCount) {
+  if (++nodes > NODE_LIMIT) throw new Error('node-limit');
+  const r0 = fullPropagate(board, size, rowClues, colClues);
+  if (r0.conflict) return 0;
+  let idx = -1;
+  for (let i = 0; i < r0.board.length; i++) if (r0.board[i] === UNKNOWN) { idx = i; break; }
+  if (idx < 0) return 1;
+  let total = 0;
+  for (const v of [BLACK, WHITE]) {
+    const b2 = r0.board.slice();
+    b2[idx] = v;
+    total += countSolutions(b2, size, rowClues, colClues, maxCount - total);
+    if (total >= maxCount) return total;
+  }
+  return total;
+}
+
+function analyze(size, rowClues, colClues, target) {
+  const empty = new Array(size * size).fill(UNKNOWN);
+  const r = fullPropagate(empty, size, rowClues, colClues);
+  if (r.conflict) return 'invalid';
+  if (r.board.indexOf(UNKNOWN) < 0) return 'logic';
+  if (target === 'logic') return 'not-logic';
+  nodes = 0;
+  let sols;
+  try { sols = countSolutions(empty, size, rowClues, colClues, 2); }
+  catch (e) { return 'timeout'; }
+  if (sols === 0) return 'invalid';
+  if (sols > 1) return 'multi';
+  for (let i = 0; i < r.board.length; i++) {
+    if (r.board[i] !== UNKNOWN) continue;
+    for (const v of [BLACK, WHITE]) {
+      const b2 = r.board.slice();
+      b2[i] = v;
+      const rr = fullPropagate(b2, size, rowClues, colClues);
+      if (!rr.conflict && rr.board.indexOf(UNKNOWN) < 0) return 'oneGuess';
+    }
+  }
+  return 'hard';
+}
+
+/* ====================== 渲染 ====================== */
+function updateCellVisual(idx) {
+  const cell = puzzle.cells[idx];
+  const el = cellEls[idx];
+  if (!el) return;
+
+  if (cell.mark === MARK_FILL) {
+    el.textContent = '';
+    el.style.color = '';
+    if (cell.color === 'auto_fill') {
+      el.style.background = AUTO_FILL_COLOR;
+      el.style.boxShadow = `inset 0 0 0 2px ${AUTO_STROKE}`;
+    } else if (cell.color === 'auto_simple') {
+      el.style.background = AUTO_SIMPLE_COLOR;
+      el.style.boxShadow = `inset 0 0 0 2px ${AUTO_STROKE}`;
+    } else if (cell.color === 'auto_deep') {
+      el.style.background = AUTO_DEEP_COLOR;
+      el.style.boxShadow = `inset 0 0 0 2px ${AUTO_STROKE}`;
+    } else if (cell.color === 'auto_error') {
+      el.style.background = AUTO_ERROR_COLOR;
+      el.style.boxShadow = `inset 0 0 0 2px ${AUTO_ERROR_STROKE}`;
+    } else if (cell.color === 'hint') {
+      el.style.background = HINT_COLOR;
+      el.style.boxShadow = 'inset 0 0 0 2px #1a2733';
+    } else if (typeof cell.color === 'number') {
+      el.style.background = PALETTE[cell.color];
+      el.style.boxShadow = `inset 0 0 0 2px ${STROKE_COLORS[cell.color]}`;
+    } else {
+      el.style.background = '#fff';
+      el.style.boxShadow = '';
+    }
+  } else if (cell.mark === MARK_CROSS) {
+    el.textContent = '×';
+    el.style.background = '#fff';
+    el.style.boxShadow = '';
+    if (cell.color === 'auto_fill' || cell.color === 'auto_simple' || cell.color === 'auto_deep') {
+      el.style.color = AUTO_CROSS_TEXT;
+    } else if (cell.color === 'auto_error') {
+      el.style.color = AUTO_ERROR_STROKE;
+    } else if (cell.color === 'hint') {
+      el.style.color = HINT_COLOR;
+    } else if (typeof cell.color === 'number') {
+      el.style.color = PALETTE[cell.color];
+    } else {
+      el.style.color = '';
+    }
+  } else {
+    el.style.background = '#fff';
+    el.style.boxShadow = '';
+    el.textContent = '';
+    el.style.color = '';
+  }
+}
+
+function updateSizeControlVisibility() {
+  const el = document.getElementById('sizeControl');
+  if (el) el.hidden = !(puzzle || design);
+}
+
+function renderBoard() {
+  const { size, rowClues, colClues } = puzzle;
+  const maxRowClue = Math.max(1, ...rowClues.map(c => c.length));
+  const maxColClue = Math.max(1, ...colClues.map(c => c.length));
+  const cols = maxRowClue + size;
+  const rows = maxColClue + size;
+
+  const grid = document.getElementById('grid');
+  grid.innerHTML = '';
+  grid.style.gridTemplateColumns =
+    `repeat(${maxRowClue}, var(--cell)) repeat(${size}, var(--cell))`;
+  grid.style.gridAutoRows = 'var(--cell)';
+
+  cellEls = new Array(size * size);
+  rowClueCells = Array.from({ length: size }, () => []);
+  colClueCells = Array.from({ length: size }, () => []);
+
+  const frag = document.createDocumentFragment();
+
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const d = document.createElement('div');
+      d.className = 'cell';
+      let isGame = false, gr = -1, gc = -1;
+
+      if (r < maxColClue && c < maxRowClue) {
+      } else if (r < maxColClue) {
+        const col = c - maxRowClue;
+        const clue = colClues[col];
+        const offset = maxColClue - clue.length;
+        if (r >= offset) {
+          d.className = 'cell cluec';
+          d.textContent = clue[r - offset];
+          colClueCells[col].push(d);
+        }
+      } else if (c < maxRowClue) {
+        const row = r - maxColClue;
+        const clue = rowClues[row];
+        const offset = maxRowClue - clue.length;
+        if (c >= offset) {
+          d.className = 'cell clue';
+          d.textContent = clue[c - offset];
+          rowClueCells[row].push(d);
+        }
+      } else {
+        const row = r - maxColClue;
+        const col = c - maxRowClue;
+        const idx = row * size + col;
+        d.className = 'cell game';
+        isGame = true;
+        gr = row; gc = col;
+        d.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          if (!puzzle || mode !== 'play') return;
+          if (autoRunning) return;
+          if (currentBrush === 'hint') {
+            if (e.button !== 0) return;
+            applyHint(row, col);
+            checkSolved();
+            return;
+          }
+          const cell = puzzle.cells[row * puzzle.size + col];
+          if (cell.color === 'auto_fill' || cell.color === 'auto_simple' ||
+              cell.color === 'auto_deep' || cell.color === 'hint') return;
+          const action = determineAction(e.button);
+          if (!action) return;
+          paintedThisDrag.clear();
+          applyAction(row, col, action);
+          checkSolved();
+        });
+        d.addEventListener('mouseenter', () => {
+          if (painting && !autoRunning && puzzle && mode === 'play') {
+            const cell = puzzle.cells[row * puzzle.size + col];
+            if (cell.color === 'auto_fill' || cell.color === 'auto_simple' ||
+                cell.color === 'auto_deep' || cell.color === 'hint') return;
+            if (paintAction) applyAction(row, col, paintAction);
+          }
+        });
+        d.addEventListener('contextmenu', (e) => e.preventDefault());
+        cellEls[idx] = d;
+      }
+
+      if (isGame) {
+        if (gc % 5 === 0 && gc > 0) d.classList.add('thick-left');
+        if ((gc + 1) % 5 === 0 && gc < size - 1) d.classList.add('thick-right');
+        if (gr % 5 === 0 && gr > 0) d.classList.add('thick-top');
+        if ((gr + 1) % 5 === 0 && gr < size - 1) d.classList.add('thick-bottom');
+        if (gr === 0) d.classList.add('thick-top');
+        if (gr === size - 1) d.classList.add('thick-bottom');
+        if (gc === 0) d.classList.add('thick-left');
+        if (gc === size - 1) d.classList.add('thick-right');
+      } else if (r >= maxColClue && c < maxRowClue) {
+        const row = r - maxColClue;
+        if (row % 5 === 0 && row > 0) d.classList.add('thick-top');
+        if ((row + 1) % 5 === 0 && row < size - 1) d.classList.add('thick-bottom');
+        if (row === 0) d.classList.add('thick-top');
+        if (row === size - 1) d.classList.add('thick-bottom');
+      } else if (r < maxColClue && c >= maxRowClue) {
+        const col = c - maxRowClue;
+        if (col % 5 === 0 && col > 0) d.classList.add('thick-left');
+        if ((col + 1) % 5 === 0 && col < size - 1) d.classList.add('thick-right');
+        if (col === 0) d.classList.add('thick-left');
+        if (col === size - 1) d.classList.add('thick-right');
+      }
+
+      frag.appendChild(d);
+    }
+  }
+  grid.appendChild(frag);
+  for (let i = 0; i < size * size; i++) updateCellVisual(i);
+  updateClueStyles();
+  updateAutoPanelVisibility();
+  updateSizeControlVisibility();
+  document.getElementById('successBox').hidden = true;
+}
+
+function updateAutoPanelVisibility() {
+  const panel = document.getElementById('autoPanel');
+  if (panel) panel.hidden = !(puzzle && mode === 'play');
+}
+
+function renderDesignBoard() {
+  if (!design) return;
+  const { size, pattern } = design;
+  const { rowClues, colClues } = computeClues(pattern, size);
+
+  const maxRowClue = Math.max(1, ...rowClues.map(c => c.length));
+  const maxColClue = Math.max(1, ...colClues.map(c => c.length));
+  const cols = maxRowClue + size;
+  const rows = maxColClue + size;
+
+  const grid = document.getElementById('grid');
+  grid.innerHTML = '';
+  grid.style.gridTemplateColumns =
+    `repeat(${maxRowClue}, var(--cell)) repeat(${size}, var(--cell))`;
+  grid.style.gridAutoRows = 'var(--cell)';
+
+  designCellEls = new Array(size * size);
+  const frag = document.createDocumentFragment();
+
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const d = document.createElement('div');
+      d.className = 'cell';
+      let isGame = false, gr = -1, gc = -1;
+
+      if (r < maxColClue && c < maxRowClue) {
+      } else if (r < maxColClue) {
+        const col = c - maxRowClue;
+        const clue = colClues[col];
+        const offset = maxColClue - clue.length;
+        if (r >= offset) {
+          d.className = 'cell cluec';
+          d.textContent = clue[r - offset];
+        }
+      } else if (c < maxRowClue) {
+        const row = r - maxColClue;
+        const clue = rowClues[row];
+        const offset = maxRowClue - clue.length;
+        if (c >= offset) {
+          d.className = 'cell clue';
+          d.textContent = clue[c - offset];
+        }
+      } else {
+        const row = r - maxColClue;
+        const col = c - maxRowClue;
+        const idx = row * size + col;
+        d.className = 'cell game';
+        isGame = true;
+        gr = row; gc = col;
+        d.style.background = pattern[idx] ? '#2c3e50' : '#fff';
+        d.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          if (e.button !== 0) return;
+          designPaintValue = pattern[idx] ? 0 : 1;
+          designPainting = true;
+          paintDesignCell(idx);
+        });
+        d.addEventListener('mouseenter', () => {
+          if (designPainting) paintDesignCell(idx);
+        });
+        d.addEventListener('contextmenu', (e) => e.preventDefault());
+        designCellEls[idx] = d;
+      }
+
+      if (isGame) {
+        if (gc % 5 === 0 && gc > 0) d.classList.add('thick-left');
+        if ((gc + 1) % 5 === 0 && gc < size - 1) d.classList.add('thick-right');
+        if (gr % 5 === 0 && gr > 0) d.classList.add('thick-top');
+        if ((gr + 1) % 5 === 0 && gr < size - 1) d.classList.add('thick-bottom');
+        if (gr === 0) d.classList.add('thick-top');
+        if (gr === size - 1) d.classList.add('thick-bottom');
+        if (gc === 0) d.classList.add('thick-left');
+        if (gc === size - 1) d.classList.add('thick-right');
+      } else if (r >= maxColClue && c < maxRowClue) {
+        const row = r - maxColClue;
+        if (row % 5 === 0 && row > 0) d.classList.add('thick-top');
+        if ((row + 1) % 5 === 0 && row < size - 1) d.classList.add('thick-bottom');
+        if (row === 0) d.classList.add('thick-top');
+        if (row === size - 1) d.classList.add('thick-bottom');
+      } else if (r < maxColClue && c >= maxRowClue) {
+        const col = c - maxRowClue;
+        if (col % 5 === 0 && col > 0) d.classList.add('thick-left');
+        if ((col + 1) % 5 === 0 && col < size - 1) d.classList.add('thick-right');
+        if (col === 0) d.classList.add('thick-left');
+        if (col === size - 1) d.classList.add('thick-right');
+      }
+
+      frag.appendChild(d);
+    }
+  }
+  grid.appendChild(frag);
+  updateAutoPanelVisibility();
+  updateSizeControlVisibility();
+}
+
+function paintDesignCell(idx) {
+  if (!design) return;
+  if (design.pattern[idx] === designPaintValue) return;
+  design.pattern[idx] = designPaintValue;
+  const el = designCellEls[idx];
+  if (el) el.style.background = designPaintValue ? '#2c3e50' : '#fff';
+}
+
+/* ====================== 线索划线 ====================== */
+function getLineRuns(cells, size, start, step) {
+  const runs = [];
+  let run = 0;
+  for (let i = 0; i < size; i++) {
+    const cell = cells[start + i * step];
+    if (cell.mark === MARK_FILL) run++;
+    else if (run) { runs.push(run); run = 0; }
+  }
+  if (run) runs.push(run);
+  return runs;
+}
+
+function runsEqual(a, b) {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+
+function updateClueStyles() {
+  if (!puzzle) return;
+  const { size, rowClues, colClues, cells } = puzzle;
+  for (let r = 0; r < size; r++) {
+    const done = runsEqual(getLineRuns(cells, size, r * size, 1), rowClues[r]);
+    for (const el of rowClueCells[r] || []) {
+      el.style.color = done ? CLUE_DONE_COLOR : '';
+      el.style.textDecoration = done ? 'line-through' : '';
+    }
+  }
+  for (let c = 0; c < size; c++) {
+    const done = runsEqual(getLineRuns(cells, size, c, size), colClues[c]);
+    for (const el of colClueCells[c] || []) {
+      el.style.color = done ? CLUE_DONE_COLOR : '';
+      el.style.textDecoration = done ? 'line-through' : '';
+    }
+  }
+}
+
+/* ====================== 玩家操作 ====================== */
+function determineAction(button) {
+  if (currentBrush === 'mouse') return button === 2 ? 'cross' : 'fill';
+  if (currentBrush === 'fill') return button === 0 ? 'fill' : null;
+  if (currentBrush === 'cross') return button === 0 ? 'cross' : null;
+  return null;
+}
+
+function applyAction(row, col, action) {
+  const idx = row * puzzle.size + col;
+  const cell = puzzle.cells[idx];
+  if (cell.color === 'hint' || cell.color === 'auto_fill' ||
+      cell.color === 'auto_simple' || cell.color === 'auto_deep') return;
+  if (paintedThisDrag.has(idx)) return;
+  paintedThisDrag.add(idx);
+
+  if (action === 'fill') {
+    if (cell.mark === MARK_FILL) { cell.mark = MARK_EMPTY; cell.color = null; }
+    else { cell.mark = MARK_FILL; cell.color = currentColor; }
+  } else if (action === 'cross') {
+    if (cell.mark === MARK_CROSS) { cell.mark = MARK_EMPTY; cell.color = null; }
+    else { cell.mark = MARK_CROSS; cell.color = currentColor; }
+  }
+  updateCellVisual(idx);
+  updateClueStyles();
+}
+
+document.addEventListener('mouseup', () => {
+  painting = false;
+  paintAction = null;
+  if (designPainting) { designPainting = false; renderDesignBoard(); }
+});
+window.addEventListener('blur', () => {
+  designPainting = false;
+  painting = false;
+});
+document.addEventListener('mousedown', (e) => {
+  if (!puzzle || mode !== 'play' || autoRunning) return;
+  if (e.target.classList.contains('game')) {
+    painting = true;
+    paintAction = determineAction(e.button);
+  }
+});
+
+function applyHint(row, col) {
+  const idx = row * puzzle.size + col;
+  const cell = puzzle.cells[idx];
+  if (cell.color === 'auto_fill' || cell.color === 'auto_simple' || cell.color === 'auto_deep') return;
+  const isBlack = puzzle.solution[idx] === 1;
+  cell.mark = isBlack ? MARK_FILL : MARK_CROSS;
+  cell.color = 'hint';
+  updateCellVisual(idx);
+}
+
+function checkSolved() {
+  if (!puzzle) return;
+  updateClueStyles();
+  const { size, solution, cells } = puzzle;
+  let solved = true;
+  for (let i = 0; i < size * size; i++) {
+    const expected = solution[i] === 1;
+    const filled = cells[i].mark === MARK_FILL;
+    if (expected !== filled) { solved = false; break; }
+  }
+
+  const successBox = document.getElementById('successBox');
+  const successText = document.getElementById('successText');
+  if (successBox && successText) {
+    if (solved) {
+      successText.textContent = '🎉 恭喜，已解出！';
+      successBox.hidden = false;
+    } else {
+      successBox.hidden = true;
+    }
+  }
+
+  if (solved && autoRunning) stopAuto();
+}
+
+/* ====================== 颜色面板 ====================== */
+function renderPalette() {
+  const pal = document.getElementById('palette');
+  pal.innerHTML = '';
+  PALETTE.forEach((c, i) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'color-btn' + (i === currentColor ? ' selected' : '');
+    btn.style.background = c;
+    btn.style.borderColor = STROKE_COLORS[i];
+    btn.title = '选择该颜色';
+    btn.onclick = () => {
+      currentColor = i;
+      if (currentBrush === 'hint') {
+        currentBrush = 'fill';
+        document.querySelectorAll('.brush-group button').forEach(b => {
+          b.classList.toggle('active', b.dataset.brush === 'fill');
+        });
+      }
+      renderPalette();
+    };
+    pal.appendChild(btn);
+  });
+}
+
+function renderClearButtons() {
+  const container = document.getElementById('clearButtons');
+  container.innerHTML = '';
+  PALETTE.forEach((c, i) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'color-btn';
+    btn.style.background = c;
+    btn.style.borderColor = STROKE_COLORS[i];
+    btn.style.color = '#fff';
+    btn.textContent = '×';
+    btn.title = '清除该颜色的所有标记';
+    btn.onclick = () => {
+      if (!puzzle) return;
+      puzzle.cells.forEach((cell, idx) => {
+        if (cell.color === i) {
+          cell.mark = MARK_EMPTY;
+          cell.color = null;
+          updateCellVisual(idx);
+        }
+      });
+      checkSolved();
+    };
+    container.appendChild(btn);
+  });
+}
+
+/* ====================== 设计模式 ====================== */
+function enterDesign() {
+  mode = 'design';
+  puzzle = null;
+  design = { size: +document.getElementById('size').value, pattern: [] };
+  design.pattern = new Array(design.size * design.size).fill(0);
+
+  document.getElementById('playTools').hidden = true;
+  document.getElementById('finishDesign').hidden = false;
+  document.getElementById('gen').hidden = true;
+  document.getElementById('reset').hidden = true;
+  document.getElementById('target').disabled = true;
+  document.getElementById('design').textContent = '退出设计';
+  document.getElementById('design').classList.add('active');
+  document.getElementById('solveStatus').textContent = '';
+  document.getElementById('result').textContent = '设计模式：绘制图案后点击「完成」';
+  document.getElementById('successBox').hidden = true;
+  renderDesignBoard();
+}
+
+function exitDesign() {
+  mode = 'play';
+  design = null;
+  designCellEls = [];
+  designPainting = false;
+
+  document.getElementById('playTools').hidden = false;
+  document.getElementById('finishDesign').hidden = true;
+  document.getElementById('gen').hidden = false;
+  document.getElementById('reset').hidden = false;
+  document.getElementById('target').disabled = false;
+  document.getElementById('design').textContent = '设计模式';
+  document.getElementById('design').classList.remove('active');
+  document.getElementById('grid').innerHTML = '';
+  document.getElementById('result').textContent = '已退出设计模式';
+  updateAutoPanelVisibility();
+  updateSizeControlVisibility();
+}
+
+function finishDesign() {
+  if (!design) return;
+  const { size, pattern } = design;
+  const { rowClues, colClues } = computeClues(pattern, size);
+
+  let cls;
+  try { cls = analyze(size, rowClues, colClues, 'hard'); }
+  catch (e) { cls = 'timeout'; }
+
+  if (cls === 'multi') {
+    document.getElementById('result').innerHTML =
+      '<span style="color:var(--err);">当前图案存在多个解，请调整图案使解唯一。</span>';
+    return;
+  }
+  if (cls === 'timeout' || cls === 'invalid') {
+    document.getElementById('result').innerHTML =
+      '<span style="color:var(--err);">无法验证唯一性（' + cls + '），请简化图案或稍后重试。</span>';
+    return;
+  }
+
+  puzzle = {
+    size, rowClues, colClues,
+    solution: pattern.slice(),
+    cells: Array.from({ length: size * size }, () => ({ mark: MARK_EMPTY, color: null })),
+  };
+
+  mode = 'play';
+  design = null;
+  designCellEls = [];
+  designPainting = false;
+
+  document.getElementById('playTools').hidden = false;
+  document.getElementById('finishDesign').hidden = true;
+  document.getElementById('gen').hidden = false;
+  document.getElementById('reset').hidden = false;
+  document.getElementById('target').disabled = false;
+  document.getElementById('design').textContent = '设计模式';
+  document.getElementById('design').classList.remove('active');
+
+  document.getElementById('solveStatus').textContent = '';
+  currentSolver = null;
+  renderBoard();
+
+  const lb = LABELS[cls];
+  document.getElementById('result').innerHTML =
+    `设计完成，<b>${size}×${size}</b> 谜题 &nbsp;|&nbsp; ` +
+    `难度：<span class="tag ${lb.cls}">${lb.text}</span>`;
+}
+
+/* ====================== 导入 / 导出 ====================== */
+function exportPuzzle() {
+  if (mode !== 'play' || !puzzle) {
+    document.getElementById('status').textContent = '当前没有可导出的谜题';
+    return;
+  }
+  const data = {
+    size: puzzle.size,
+    rowClues: puzzle.rowClues,
+    colClues: puzzle.colClues,
+    solution: puzzle.solution,
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'nonogram-' + puzzle.size + 'x' + puzzle.size + '.json';
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { a.remove(); URL.revokeObjectURL(url); }, 0);
+  document.getElementById('status').textContent = '谜题已导出';
+}
+
+function handleImportFile(file) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const data = JSON.parse(reader.result);
+      const size = data.size;
+      const solution = data.solution;
+      if (!Number.isInteger(size) || size < 2 || size > 30) throw new Error('尺寸必须是 2–30 的整数');
+      if (!Array.isArray(solution) || solution.length !== size * size) throw new Error('解数组长度与尺寸不符');
+      for (const v of solution) if (v !== 0 && v !== 1) throw new Error('解必须只包含 0 和 1');
+
+      const { rowClues, colClues } = computeClues(solution, size);
+      let cls;
+      try { cls = analyze(size, rowClues, colClues, 'hard'); }
+      catch (e) { cls = 'timeout'; }
+
+      if (mode === 'design') exitDesign();
+
+      puzzle = {
+        size, rowClues, colClues,
+        solution: solution.slice(),
+        cells: Array.from({ length: size * size }, () => ({ mark: MARK_EMPTY, color: null })),
+      };
+
+      document.getElementById('solveStatus').textContent = '';
+      currentSolver = null;
+      renderBoard();
+
+      if (cls === 'logic' || cls === 'oneGuess' || cls === 'hard') {
+        const lb = LABELS[cls];
+        document.getElementById('result').innerHTML =
+          `已导入 <b>${size}×${size}</b> 谜题 &nbsp;|&nbsp; ` +
+          `难度：<span class="tag ${lb.cls}">${lb.text}</span>`;
+      } else if (cls === 'multi') {
+        document.getElementById('result').innerHTML =
+          `⚠ 已导入 <b>${size}×${size}</b> 谜题，但该谜题存在多个解。`;
+      } else {
+        document.getElementById('result').innerHTML =
+          `已导入 <b>${size}×${size}</b> 谜题（唯一性验证未完成：${cls}）`;
+      }
+    } catch (e) {
+      document.getElementById('result').innerHTML =
+        '<span style="color:var(--err);">导入失败：' + (e.message || '格式错误') + '</span>';
+    } finally {
+      document.getElementById('importFile').value = '';
+    }
+  };
+  reader.readAsText(file);
+}
+
+/* ====================== 拟人 AI 托管 ====================== */
+class HumanSolver {
+  constructor(puzzle) {
+    this.puzzle = puzzle;
+    this.assumptionStack = [];
+
+    this.dirtyRows = new Set();
+    this.dirtyCols = new Set();
+    this.rowCursor = 0;
+    this.colCursor = 0;
+
+    this.probeCandidates = null;
+    this.probeCursor = 0;
+
+    this.resetSweep();
+  }
+
+  resetSweep() {
+    const size = this.puzzle.size;
+    this.dirtyRows = new Set();
+    this.dirtyCols = new Set();
+    for (let i = 0; i < size; i++) {
+      this.dirtyRows.add(i);
+      this.dirtyCols.add(i);
+    }
+    this.rowCursor = 0;
+    this.colCursor = 0;
+    this.probeCandidates = null;
+    this.probeCursor = 0;
+  }
+
+  markRowDirty(r) { this.dirtyRows.add(r); }
+  markColDirty(c) { this.dirtyCols.add(c); }
+
+  snapshotBoard() {
+    const { size, cells } = this.puzzle;
+    const b = new Array(size * size).fill(UNKNOWN);
+    for (let i = 0; i < size * size; i++) {
+      if (cells[i].mark === MARK_FILL) b[i] = BLACK;
+      else if (cells[i].mark === MARK_CROSS) b[i] = WHITE;
+    }
+    return b;
+  }
+
+  currentBoard() { return this.snapshotBoard(); }
+
+  setCell(idx, mark, source) {
+    const cell = this.puzzle.cells[idx];
+    cell.mark = mark;
+    cell.color = source;
+    updateCellVisual(idx);
+  }
+
+  commitBoard(board, source, changedOut) {
+    const { size, cells } = this.puzzle;
+    let changed = 0;
+    for (let i = 0; i < size * size; i++) {
+      if (cells[i].mark !== MARK_EMPTY) continue;
+      if (board[i] === BLACK) {
+        cells[i].mark = MARK_FILL; cells[i].color = source;
+        updateCellVisual(i); changed++;
+        if (changedOut) changedOut.push(i);
+      } else if (board[i] === WHITE) {
+        cells[i].mark = MARK_CROSS; cells[i].color = source;
+        updateCellVisual(i); changed++;
+        if (changedOut) changedOut.push(i);
+      }
+    }
+    if (changed) updateClueStyles();
+    return changed;
+  }
+
+  isAllFilled() {
+    return this.puzzle.cells.every(c => c.mark !== MARK_EMPTY);
+  }
+
+  stepSweep() {
+    const { size, rowClues, colClues } = this.puzzle;
+
+    let lineType = null, lineIdx = -1;
+    if (this.dirtyRows.size > 0) {
+      lineType = 'row';
+      let best = -1;
+      for (const r of this.dirtyRows) { if (r >= this.rowCursor) { best = r; break; } }
+      if (best < 0) best = Math.min(...this.dirtyRows);
+      lineIdx = best;
+      this.rowCursor = lineIdx + 1;
+      this.dirtyRows.delete(lineIdx);
+    } else if (this.dirtyCols.size > 0) {
+      lineType = 'col';
+      let best = -1;
+      for (const c of this.dirtyCols) { if (c >= this.colCursor) { best = c; break; } }
+      if (best < 0) best = Math.min(...this.dirtyCols);
+      lineIdx = best;
+      this.colCursor = lineIdx + 1;
+      this.dirtyCols.delete(lineIdx);
+    } else {
+      return { phase: 'sweep-done' };
+    }
+
+    const board = this.currentBoard();
+    const start = lineType === 'row' ? lineIdx * size : lineIdx;
+    const step = lineType === 'row' ? 1 : size;
+    const clue = lineType === 'row' ? rowClues[lineIdx] : colClues[lineIdx];
+
+    const changedList = [];
+    const res = lineStep(board, size, start, step, clue, changedList);
+    if (res < 0) return { phase: 'conflict', lineType, lineIdx };
+
+    if (changedList.length > 0) {
+      for (const idx of changedList) {
+        const v = board[idx];
+        this.setCell(idx, v === BLACK ? MARK_FILL : MARK_CROSS, 'auto_fill');
+        if (lineType === 'row') this.markColDirty(idx % size);
+        else this.markRowDirty((idx / size) | 0);
+      }
+      updateClueStyles();
+      return { phase: 'swept', lineType, lineIdx, changed: changedList.length };
+    }
+    return { phase: 'swept', lineType, lineIdx, changed: 0 };
+  }
+
+  stepProbe() {
+    const { size, rowClues, colClues } = this.puzzle;
+
+    if (!this.probeCandidates) {
+      this.probeCandidates = this.rankCandidates();
+      this.probeCursor = 0;
+      if (this.probeCandidates.length === 0) return { phase: 'probe-done' };
+    }
+    if (this.probeCursor >= this.probeCandidates.length) return { phase: 'probe-done' };
+
+    const idx = this.probeCandidates[this.probeCursor];
+    this.probeCursor++;
+
+    if (this.puzzle.cells[idx].mark !== MARK_EMPTY) {
+      return { phase: 'probed', idx, skipped: true };
+    }
+
+    const baseBoard = this.currentBoard();
+
+    const bBlack = baseBoard.slice(); bBlack[idx] = BLACK;
+    const rB = fullPropagate(bBlack, size, rowClues, colClues);
+
+    const bWhite = baseBoard.slice(); bWhite[idx] = WHITE;
+    const rW = fullPropagate(bWhite, size, rowClues, colClues);
+
+    const blackOk = !rB.conflict;
+    const whiteOk = !rW.conflict;
+
+    if (!blackOk && !whiteOk) return { phase: 'probed', idx, conclusion: 'none' };
+    if (blackOk && !whiteOk) {
+      this.setCell(idx, MARK_FILL, 'auto_simple');
+      this.markRowDirty((idx / size) | 0);
+      this.markColDirty(idx % size);
+      this.probeCandidates = null;
+      return { phase: 'probed', idx, conclusion: 'black' };
+    }
+    if (!blackOk && whiteOk) {
+      this.setCell(idx, MARK_CROSS, 'auto_simple');
+      this.markRowDirty((idx / size) | 0);
+      this.markColDirty(idx % size);
+      this.probeCandidates = null;
+      return { phase: 'probed', idx, conclusion: 'white' };
+    }
+
+    const common = this.intersectBoards(rB.board, rW.board);
+    let commonCount = 0;
+    for (let i = 0; i < size * size; i++) {
+      if (common[i] !== UNKNOWN && this.puzzle.cells[i].mark === MARK_EMPTY) commonCount++;
+    }
+    if (commonCount > 0) {
+      const changedOut = [];
+      this.commitBoard(common, 'auto_fill', changedOut);
+      for (const c of changedOut) {
+        this.markRowDirty((c / size) | 0);
+        this.markColDirty(c % size);
+      }
+      this.probeCandidates = null;
+      return { phase: 'probed', idx, conclusion: 'common', count: commonCount };
+    }
+    return { phase: 'probed', idx, conclusion: 'inconclusive' };
+  }
+
+  intersectBoards(b1, b2) {
+    const size = this.puzzle.size;
+    const out = new Array(size * size).fill(UNKNOWN);
+    for (let i = 0; i < size * size; i++) {
+      if (b1[i] === b2[i] && b1[i] !== UNKNOWN) out[i] = b1[i];
+    }
+    return out;
+  }
+
+  stepAssume() {
+    const { size, rowClues, colClues } = this.puzzle;
+    const candidates = this.rankCandidates();
+    if (candidates.length === 0) return { phase: 'assume-done' };
+    const idx = candidates[0];
+
+    const frame = { idx, value: BLACK, introduced: [] };
+    this.assumptionStack.push(frame);
+
+    this.setCell(idx, MARK_FILL, 'auto_deep');
+    frame.introduced.push(idx);
+
+    const board = this.currentBoard();
+    const r = fullPropagate(board, size, rowClues, colClues);
+    if (r.conflict) return { phase: 'assume-conflict', idx };
+
+    const changedOut = [];
+    this.commitBoard(r.board, 'auto_deep', changedOut);
+    for (const i of changedOut) frame.introduced.push(i);
+    for (const i of changedOut) {
+      this.markRowDirty((i / size) | 0);
+      this.markColDirty(i % size);
+    }
+    this.markRowDirty((idx / size) | 0);
+    this.markColDirty(idx % size);
+
+    return { phase: 'assumed', idx, count: changedOut.length };
+  }
+
+  stepBacktrack() {
+    if (this.assumptionStack.length === 0) return { phase: 'backtrack-done', ok: false };
+    const { size, rowClues, colClues } = this.puzzle;
+    const cells = this.puzzle.cells;
+    const frame = this.assumptionStack.pop();
+
+    for (const i of frame.introduced) {
+      if (cells[i].color === 'auto_deep') {
+        cells[i].mark = MARK_EMPTY;
+        cells[i].color = null;
+        updateCellVisual(i);
+      }
+    }
+
+    const flipped = frame.value === BLACK ? WHITE : BLACK;
+    const mark = flipped === BLACK ? MARK_FILL : MARK_CROSS;
+    this.setCell(frame.idx, mark, 'auto_fill');
+
+    const board = this.currentBoard();
+    const r = fullPropagate(board, size, rowClues, colClues);
+    if (r.conflict) return { phase: 'backtrack-conflict', ok: false };
+
+    const changedOut = [];
+    this.commitBoard(r.board, 'auto_fill', changedOut);
+    for (const c of changedOut) {
+      this.markRowDirty((c / size) | 0);
+      this.markColDirty(c % size);
+    }
+    this.markRowDirty((frame.idx / size) | 0);
+    this.markColDirty(frame.idx % size);
+    updateClueStyles();
+    return { phase: 'backtracked', ok: true, count: changedOut.length };
+  }
+
+  rankCandidates() {
+    const { size, cells, rowClues, colClues } = this.puzzle;
+    const list = [];
+    for (let i = 0; i < size * size; i++) {
+      if (cells[i].mark !== MARK_EMPTY) continue;
+      const r = (i / size) | 0, c = i % size;
+      let rowUnknown = 0, colUnknown = 0;
+      for (let k = 0; k < size; k++) {
+        if (cells[r * size + k].mark === MARK_EMPTY) rowUnknown++;
+        if (cells[k * size + c].mark === MARK_EMPTY) colUnknown++;
+      }
+      let score = 0;
+      score += (size - rowUnknown) * 2;
+      score += (size - colUnknown) * 2;
+      const rowMax = rowClues[r].length ? Math.max(...rowClues[r]) : 0;
+      const colMax = colClues[c].length ? Math.max(...colClues[c]) : 0;
+      score += rowMax + colMax;
+      score += (size - Math.abs(c - size / 2) - Math.abs(r - size / 2)) * 0.1;
+      list.push({ idx: i, score });
+    }
+    list.sort((a, b) => b.score - a.score);
+    return list.map(x => x.idx);
+  }
+}
+
+/* ---------- 自动纠错 ---------- */
+function autoCorrect() {
+  if (!puzzle || mode !== 'play') return false;
+  const { size, rowClues, colClues, cells } = puzzle;
+
+  let guard = 0;
+  const maxIter = size * size;
+
+  while (guard++ < maxIter) {
+    const board = new Array(size * size).fill(UNKNOWN);
+    for (let i = 0; i < size * size; i++) {
+      if (cells[i].mark === MARK_FILL) board[i] = BLACK;
+      else if (cells[i].mark === MARK_CROSS) board[i] = WHITE;
+    }
+    const r = fullPropagate(board, size, rowClues, colClues);
+    if (!r.conflict) break;
+
+    let removed = false;
+    for (let i = 0; i < size * size; i++) {
+      if (cells[i].mark === MARK_EMPTY) continue;
+      if (cells[i].color === 'auto_fill' || cells[i].color === 'auto_simple' || cells[i].color === 'auto_deep') continue;
+      const savedMark = cells[i].mark, savedColor = cells[i].color;
+      cells[i].mark = MARK_EMPTY;
+      cells[i].color = null;
+      const testBoard = new Array(size * size).fill(UNKNOWN);
+      for (let j = 0; j < size * size; j++) {
+        if (cells[j].mark === MARK_FILL) testBoard[j] = BLACK;
+        else if (cells[j].mark === MARK_CROSS) testBoard[j] = WHITE;
+      }
+      const tr = fullPropagate(testBoard, size, rowClues, colClues);
+      if (!tr.conflict) {
+        cells[i].color = 'auto_error';
+        updateCellVisual(i);
+        setTimeout(() => {
+          if (cells[i].color === 'auto_error') {
+            cells[i].mark = MARK_EMPTY;
+            cells[i].color = null;
+            updateCellVisual(i);
+            updateClueStyles();
+            checkSolved();
+          }
+        }, AUTO_STEP_MS);
+        removed = true;
+        return true;
+      }
+      cells[i].mark = savedMark;
+      cells[i].color = savedColor;
+    }
+    if (!removed) {
+      for (let i = 0; i < size * size; i++) {
+        if (cells[i].mark !== MARK_EMPTY &&
+            cells[i].color !== 'auto_fill' &&
+            cells[i].color !== 'auto_simple' &&
+            cells[i].color !== 'auto_deep') {
+          cells[i].mark = MARK_EMPTY;
+          cells[i].color = null;
+          updateCellVisual(i);
+        }
+      }
+      updateClueStyles();
+      checkSolved();
+      return true;
+    }
+  }
+
+  const board = new Array(size * size).fill(UNKNOWN);
+  for (let i = 0; i < size * size; i++) {
+    if (cells[i].mark === MARK_FILL) board[i] = BLACK;
+    else if (cells[i].mark === MARK_CROSS) board[i] = WHITE;
+  }
+  const r = fullPropagate(board, size, rowClues, colClues);
+  if (!r.conflict) {
+    for (let i = 0; i < size * size; i++) {
+      if (cells[i].mark === MARK_EMPTY) continue;
+      const expected = r.board[i];
+      if (expected === UNKNOWN) continue;
+      const actual = cells[i].mark === MARK_FILL ? BLACK : WHITE;
+      if (expected !== actual) {
+        cells[i].color = 'auto_error';
+        updateCellVisual(i);
+        setTimeout(() => {
+          if (cells[i].color === 'auto_error') {
+            cells[i].mark = MARK_EMPTY;
+            cells[i].color = null;
+            updateCellVisual(i);
+            updateClueStyles();
+            checkSolved();
+          }
+        }, AUTO_STEP_MS);
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+function ensureSolver() {
+  if (!currentSolver || currentSolver.puzzle !== puzzle) {
+    currentSolver = new HumanSolver(puzzle);
+    const { size, cells } = puzzle;
+    const board = new Array(size * size).fill(UNKNOWN);
+    for (let i = 0; i < size * size; i++) {
+      if (cells[i].mark === MARK_FILL) board[i] = BLACK;
+      else if (cells[i].mark === MARK_CROSS) board[i] = WHITE;
+    }
+    for (let r = 0; r < size; r++) {
+      for (let c = 0; c < size; c++) {
+        if (board[r * size + c] !== UNKNOWN) {
+          currentSolver.markRowDirty(r);
+          currentSolver.markColDirty(c);
+        }
+      }
+    }
+  }
+  return currentSolver;
+}
+
+/* ---------- 单步内部执行（返回是否产生可见变化） ---------- */
+function stepInternal() {
+  const solver = ensureSolver();
+  if (solver.isAllFilled()) {
+    return { didChange: false, exhausted: true };
+  }
+
+  // 1) 脏线扫描
+  if (solver.dirtyRows.size > 0 || solver.dirtyCols.size > 0) {
+    setAutoPhase('扫描行列…');
+    const res = solver.stepSweep();
+    if (res.phase === 'conflict') {
+      setAutoPhase('回溯并翻转…');
+      const bt = solver.stepBacktrack();
+      if (!bt.ok) {
+        return { didChange: false, exhausted: true, error: '回溯失败' };
+      }
+      return { didChange: true, exhausted: false };
+    }
+    return { didChange: res.changed > 0, exhausted: false };
+  }
+
+  // 2) 单点假设
+  setAutoPhase('尝试单点假设…');
+  const pr = solver.stepProbe();
+  if (pr.phase === 'probed') {
+    if (pr.conclusion === 'black' || pr.conclusion === 'white' || pr.conclusion === 'common') {
+      return { didChange: true, exhausted: false };
+    }
+    // inconclusive / skipped / none → 无可见变化，但还没耗尽
+    return { didChange: false, exhausted: false };
+  }
+  if (pr.phase === 'probe-done') {
+    // 3) 深假设
+    setAutoPhase('深入假设…');
+    const as = solver.stepAssume();
+    if (as.phase === 'assume-conflict') {
+      setAutoPhase('假设矛盾，回溯…');
+      const bt = solver.stepBacktrack();
+      if (!bt.ok) {
+        return { didChange: false, exhausted: true, error: '回溯失败' };
+      }
+      return { didChange: true, exhausted: false };
+    }
+    if (as.phase === 'assume-done') {
+      return { didChange: false, exhausted: true };
+    }
+    return { didChange: true, exhausted: false };
+  }
+  return { didChange: false, exhausted: false };
+}
+
+/* ---------- 推理一次：循环直到至少产生一个可见变化 ---------- */
+function runOneStep() {
+  if (!puzzle || mode !== 'play') return false;
+
+  const solver = ensureSolver();
+  if (solver.isAllFilled()) {
+    checkSolved();
+    return false;
+  }
+
+  const MAX_INTERNAL_STEPS = 500;
+  for (let i = 0; i < MAX_INTERNAL_STEPS; i++) {
+    const r = stepInternal();
+    if (r.error) {
+      document.getElementById('solveStatus').textContent = '⚠ ' + r.error;
+      checkSolved();
+      return false;
+    }
+    if (r.didChange) {
+      checkSolved();
+      return true;
+    }
+    if (r.exhausted) {
+      checkSolved();
+      return false;
+    }
+  }
+  checkSolved();
+  return false;
+}
+
+/* 手动「帮帮我! 人机大人!」入口（托管运行中不可用） */
+function doOneStep() {
+  if (autoRunning) return false;
+  return runOneStep();
+}
+
+function setAutoPhase(txt) {
+  const el = document.getElementById('autoPhase');
+  if (el) el.textContent = txt;
+}
+
+/* ---------- 主循环（开启托管） ---------- */
+function startAuto() {
+  if (!puzzle || autoRunning) return;
+  if (mode !== 'play') return;
+
+  autoRunning = true;
+  const btn = document.getElementById('autoBtn');
+  btn.textContent = '停止托管';
+  btn.classList.add('active');
+  document.querySelectorAll('#playTools .brush-group button, #palette button, #clearButtons button').forEach(el => {
+    el.disabled = true;
+  });
+
+  currentSolver = null;
+  setAutoPhase('检查已填格…');
+  // 不调 checkSolved，避免误触发 stopAuto
+  autoTimer = setTimeout(autoTick, AUTO_STEP_MS);
+}
+
+function stopAuto() {
+  if (autoTimer) { clearTimeout(autoTimer); autoTimer = null; }
+  autoRunning = false;
+  const btn = document.getElementById('autoBtn');
+  btn.textContent = '开启托管';
+  btn.classList.remove('active');
+  btn.disabled = false;
+  document.querySelectorAll('#playTools .brush-group button, #palette button, #clearButtons button').forEach(el => {
+    el.disabled = false;
+  });
+  setAutoPhase('');
+}
+
+function autoTick() {
+  autoTimer = null;
+  if (!autoRunning || !puzzle) {
+    if (autoRunning) stopAuto();
+    return;
+  }
+
+  try {
+    if (!currentSolver) {
+      setAutoPhase('检查已填格…');
+      const hadError = autoCorrect();
+      if (hadError) {
+        autoTimer = setTimeout(autoTick, AUTO_STEP_MS);
+        return;
+      }
+      currentSolver = ensureSolver();
+      setAutoPhase('开始推理…');
+      autoTimer = setTimeout(autoTick, AUTO_STEP_MS);
+      return;
+    }
+
+    if (currentSolver.isAllFilled()) {
+      checkSolved();
+      stopAuto();
+      return;
+    }
+
+    // 等同于每 0.3 秒点一次「帮帮我! 人机大人!」
+    const ok = runOneStep();
+    if (!autoRunning) return;
+    if (!ok) {
+      checkSolved();
+      stopAuto();
+      return;
+    }
+    autoTimer = setTimeout(autoTick, AUTO_STEP_MS);
+  } catch (e) {
+    console.error('[托管异常]', e);
+    stopAuto();
+    document.getElementById('solveStatus').textContent = '⚠ 托管异常：' + (e.message || e);
+  }
+}
+
+/* ====================== 按钮绑定 ====================== */
+document.querySelectorAll('.brush-group button').forEach(btn => {
+  btn.onclick = () => {
+    if (autoRunning) return;
+    document.querySelectorAll('.brush-group button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentBrush = btn.dataset.brush;
+  };
+});
+
+document.getElementById('reset').onclick = () => {
+  if (!puzzle) return;
+  if (autoRunning) stopAuto();
+  puzzle.cells.forEach((cell, idx) => {
+    cell.mark = MARK_EMPTY;
+    cell.color = null;
+    updateCellVisual(idx);
+  });
+  document.getElementById('solveStatus').textContent = '';
+  document.getElementById('successBox').hidden = true;
+  updateClueStyles();
+  currentSolver = null;
+};
+
+document.getElementById('design').onclick = () => {
+  if (autoRunning) stopAuto();
+  if (mode === 'design') exitDesign();
+  else enterDesign();
+};
+
+document.getElementById('finishDesign').onclick = finishDesign;
+document.getElementById('exportBtn').onclick = exportPuzzle;
+
+document.getElementById('importBtn').onclick = () => {
+  document.getElementById('importFile').click();
+};
+document.getElementById('importFile').onchange = (e) => {
+  const file = e.target.files && e.target.files[0];
+  if (file) handleImportFile(file);
+};
+
+document.getElementById('size').onchange = () => {
+  if (mode === 'design') enterDesign();
+};
+
+document.getElementById('autoFixBtn').onclick = () => {
+  if (!puzzle || autoRunning) return;
+  setAutoPhase('自动纠错…');
+  const hadError = autoCorrect();
+  if (!hadError) {
+    setAutoPhase('已填格全部正确');
+    setTimeout(() => setAutoPhase(''), 1500);
+  } else {
+    setAutoPhase('已清除错误格');
+    setTimeout(() => setAutoPhase(''), 1500);
+  }
+  currentSolver = null;
+};
+
+document.getElementById('autoStepBtn').onclick = () => {
+  if (!puzzle || autoRunning) return;
+  const ok = doOneStep();
+  if (!ok) {
+    setAutoPhase('无更多可推理步骤');
+    setTimeout(() => setAutoPhase(''), 1500);
+  }
+};
+
+document.getElementById('autoBtn').onclick = () => {
+  if (autoRunning) stopAuto();
+  else startAuto();
+};
+
+/* ---------- 格子大小滑条 ---------- */
+const cellSizeInput = document.getElementById('cellSize');
+const cellSizeVal = document.getElementById('cellSizeVal');
+
+function applyCellSize(px) {
+  document.documentElement.style.setProperty('--cell', px + 'px');
+  cellSizeVal.textContent = px + 'px';
+}
+
+cellSizeInput.addEventListener('input', () => {
+  applyCellSize(+cellSizeInput.value);
+});
+
+/* 初始化滑条：读取当前 --cell 的实际像素值 */
+(function initCellSize() {
+  // 从计算样式中读默认值
+  const probe = document.createElement('div');
+  probe.style.width = 'var(--cell)';
+  probe.style.height = 'var(--cell)';
+  probe.style.position = 'absolute';
+  probe.style.visibility = 'hidden';
+  document.body.appendChild(probe);
+  const w = probe.getBoundingClientRect().width;
+  document.body.removeChild(probe);
+  const px = Math.round(w) || 26;
+  const clamped = Math.max(12, Math.min(40, px));
+  cellSizeInput.value = clamped;
+  applyCellSize(clamped);
+})();
+
+/* ====================== 生成 ====================== */
+const LABELS = {
+  logic:    { cls: 'green',  text: '不需要假设' },
+  oneGuess: { cls: 'blue',   text: '只用一次假设' },
+  hard:     { cls: 'orange', text: '需多次假设' },
+};
+
+let busy = false;
+
+async function doGenerate() {
+  if (mode !== 'play') return;
+  if (busy) return;
+  if (autoRunning) stopAuto();
+  busy = true;
+  const btn = document.getElementById('gen');
+  const statusEl = document.getElementById('status');
+  const resultEl = document.getElementById('result');
+  btn.disabled = true;
+
+  const size = +document.getElementById('size').value;
+  const target = document.getElementById('target').value;
+
+  const t0 = performance.now();
+  const TIME_LIMIT = 30000;
+  const MAX_ATTEMPTS = 100000;
+
+  let attempt = 0;
+  let found = null;
+
+  while (attempt < MAX_ATTEMPTS && performance.now() - t0 < TIME_LIMIT) {
+    attempt++;
+    if (attempt % 25 === 0) {
+      statusEl.textContent =
+        `尝试 ${attempt} 次… 已用时 ${((performance.now() - t0) / 1000).toFixed(1)}s`;
+      await new Promise(r => setTimeout(r, 0));
+    }
+
+    const density = 0.35 + Math.random() * 0.40;
+    const pattern = new Array(size * size);
+    let blackCount = 0;
+    for (let i = 0; i < pattern.length; i++) {
+      const v = Math.random() < density ? 1 : 0;
+      pattern[i] = v;
+      if (v) blackCount++;
+    }
+    if (blackCount < size * size * 0.20 || blackCount > size * size * 0.85) continue;
+
+    const { rowClues, colClues } = computeClues(pattern, size);
+    let cls;
+    try { cls = analyze(size, rowClues, colClues, target); }
+    catch (e) { continue; }
+
+    if (cls === target) {
+      found = { size, rowClues, colClues, pattern, attempts: attempt, cls };
+      break;
+    }
+  }
+
+  const elapsed = ((performance.now() - t0) / 1000).toFixed(2);
+
+  if (!found) {
+    statusEl.textContent = '';
+    resultEl.innerHTML =
+      `<span style="color:var(--err);">未能在 ${elapsed}s 内生成该档次的谜题，请重试或换个尺寸。</span>`;
+    btn.disabled = false; busy = false;
+    return;
+  }
+
+  statusEl.textContent = '';
+  const lb = LABELS[found.cls];
+  resultEl.innerHTML =
+    `已生成 <b>${found.size}×${found.size}</b> 谜题 &nbsp;|&nbsp; ` +
+    `档次：<span class="tag ${lb.cls}">${lb.text}</span> ` +
+    `<span style="color:var(--muted);">（尝试 ${found.attempts} 次，用时 ${elapsed}s）</span>`;
+
+  puzzle = {
+    size: found.size,
+    rowClues: found.rowClues,
+    colClues: found.colClues,
+    solution: found.pattern.slice(),
+    cells: Array.from({ length: found.size * found.size }, () => ({
+      mark: MARK_EMPTY, color: null,
+    })),
+  };
+
+  document.getElementById('solveStatus').textContent = '';
+  currentSolver = null;
+  renderBoard();
+
+  btn.disabled = false;
+  busy = false;
+}
+
+document.getElementById('gen').addEventListener('click', doGenerate);
+
+/* ====================== 初始化 ====================== */
+renderPalette();
+renderClearButtons();
+updateAutoPanelVisibility();
+updateSizeControlVisibility();
+</script>
+</body>
+</html>
