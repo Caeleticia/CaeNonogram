@@ -337,6 +337,11 @@
       <button id="autoBtn" style="background:#f8f0ff; border-color:#d9b8ff; color:#6b3fa0;">我不做人辣!</button>
       <span id="autoPhase" class="auto-phase"></span>
     </div>
+    <div class="auto-hint">
+      纠错<br>
+      推理一次<br>
+      解!放!双!手!
+    </div>
   </div>
 
   <div class="footer">
@@ -1447,97 +1452,27 @@ class HumanSolver {
   }
 }
 
-/* ---------- 自动纠错 ---------- */
+/* ---------- 自动纠错：逐格替换（不删除） ---------- */
 function autoCorrect() {
   if (!puzzle || mode !== 'play') return false;
-  const { size, rowClues, colClues, cells } = puzzle;
+  const { size, solution, cells } = puzzle;
 
-  let guard = 0;
-  const maxIter = size * size;
+  // 依次检查用户填写的单元格：填错就替换为正确项（浅紫色），填对则保留
+  for (let i = 0; i < size * size; i++) {
+    const cell = cells[i];
+    if (cell.mark === MARK_EMPTY) continue;
+    if (cell.color === 'auto_fill' || cell.color === 'auto_simple' ||
+        cell.color === 'auto_deep' || cell.color === 'auto_error' ||
+        cell.color === 'hint') continue;
 
-  while (guard++ < maxIter) {
-    const board = new Array(size * size).fill(UNKNOWN);
-    for (let i = 0; i < size * size; i++) {
-      if (cells[i].mark === MARK_FILL) board[i] = BLACK;
-      else if (cells[i].mark === MARK_CROSS) board[i] = WHITE;
-    }
-    const r = fullPropagate(board, size, rowClues, colClues);
-    if (!r.conflict) break;
-
-    let removed = false;
-    for (let i = 0; i < size * size; i++) {
-      if (cells[i].mark === MARK_EMPTY) continue;
-      if (cells[i].color === 'auto_fill' || cells[i].color === 'auto_simple' || cells[i].color === 'auto_deep') continue;
-      const savedMark = cells[i].mark, savedColor = cells[i].color;
-      cells[i].mark = MARK_EMPTY;
-      cells[i].color = null;
-      const testBoard = new Array(size * size).fill(UNKNOWN);
-      for (let j = 0; j < size * size; j++) {
-        if (cells[j].mark === MARK_FILL) testBoard[j] = BLACK;
-        else if (cells[j].mark === MARK_CROSS) testBoard[j] = WHITE;
-      }
-      const tr = fullPropagate(testBoard, size, rowClues, colClues);
-      if (!tr.conflict) {
-        cells[i].color = 'auto_error';
-        updateCellVisual(i);
-        setTimeout(() => {
-          if (cells[i].color === 'auto_error') {
-            cells[i].mark = MARK_EMPTY;
-            cells[i].color = null;
-            updateCellVisual(i);
-            updateClueStyles();
-            checkSolved();
-          }
-        }, AUTO_STEP_MS);
-        removed = true;
-        return true;
-      }
-      cells[i].mark = savedMark;
-      cells[i].color = savedColor;
-    }
-    if (!removed) {
-      for (let i = 0; i < size * size; i++) {
-        if (cells[i].mark !== MARK_EMPTY &&
-            cells[i].color !== 'auto_fill' &&
-            cells[i].color !== 'auto_simple' &&
-            cells[i].color !== 'auto_deep') {
-          cells[i].mark = MARK_EMPTY;
-          cells[i].color = null;
-          updateCellVisual(i);
-        }
-      }
+    const expectedMark = solution[i] === 1 ? MARK_FILL : MARK_CROSS;
+    if (cell.mark !== expectedMark) {
+      cell.mark = expectedMark;
+      cell.color = 'auto_fill';   // 浅紫色
+      updateCellVisual(i);
       updateClueStyles();
       checkSolved();
-      return true;
-    }
-  }
-
-  const board = new Array(size * size).fill(UNKNOWN);
-  for (let i = 0; i < size * size; i++) {
-    if (cells[i].mark === MARK_FILL) board[i] = BLACK;
-    else if (cells[i].mark === MARK_CROSS) board[i] = WHITE;
-  }
-  const r = fullPropagate(board, size, rowClues, colClues);
-  if (!r.conflict) {
-    for (let i = 0; i < size * size; i++) {
-      if (cells[i].mark === MARK_EMPTY) continue;
-      const expected = r.board[i];
-      if (expected === UNKNOWN) continue;
-      const actual = cells[i].mark === MARK_FILL ? BLACK : WHITE;
-      if (expected !== actual) {
-        cells[i].color = 'auto_error';
-        updateCellVisual(i);
-        setTimeout(() => {
-          if (cells[i].color === 'auto_error') {
-            cells[i].mark = MARK_EMPTY;
-            cells[i].color = null;
-            updateCellVisual(i);
-            updateClueStyles();
-            checkSolved();
-          }
-        }, AUTO_STEP_MS);
-        return true;
-      }
+      return true;                // 一次只纠正一个，保留节奏感
     }
   }
   return false;
@@ -1786,7 +1721,7 @@ document.getElementById('autoFixBtn').onclick = () => {
     setAutoPhase('已填格全部正确');
     setTimeout(() => setAutoPhase(''), 1500);
   } else {
-    setAutoPhase('已清除错误格');
+    setAutoPhase('已纠正错误格');
     setTimeout(() => setAutoPhase(''), 1500);
   }
   currentSolver = null;
@@ -1930,7 +1865,7 @@ async function doGenerate() {
 }
 
 document.getElementById('gen').addEventListener('click', doGenerate);
-  
+
 /* ====================== 初始化 ====================== */
 renderPalette();
 renderClearButtons();
