@@ -1937,34 +1937,41 @@ renderClearButtons();
 
 /* 初始创建一个默认数织 */
 (function initDefaultPuzzle() {
-  const size = 10;
-  const rows = [
-    '0000000000',
-    '0011111100',
-    '0111111110',
-    '0111111110',
-    '0011111100',
-    '0001111000',
-    '0000110000',
-    '0000000000',
-    '0000000000',
-    '0000000000',
-  ];
-  const solution = [];
-  for (const row of rows) for (const ch of row) solution.push(ch === '1' ? 1 : 0);
-
-  const { rowClues, colClues } = computeClues(solution, size);
-  puzzle = {
-    size,
-    rowClues,
-    colClues,
-    solution,
-    cells: Array.from({ length: size * size }, () => ({ mark: MARK_EMPTY, color: null })),
+  const data = {
+    size: 10,
+    rowClues: [
+      [], [2, 2], [8], [8], [8], [6], [4], [2], [], []
+    ],
+    colClues: [
+      [], [3], [5], [6], [6], [6], [6], [5], [3], []
+    ],
+    solution: [
+      0,0,0,0,0,0,0,0,0,0,
+      0,0,1,1,0,0,1,1,0,0,
+      0,1,1,1,1,1,1,1,1,0,
+      0,1,1,1,1,1,1,1,1,0,
+      0,1,1,1,1,1,1,1,1,0,
+      0,0,1,1,1,1,1,1,0,0,
+      0,0,0,1,1,1,1,0,0,0,
+      0,0,0,0,1,1,0,0,0,0,
+      0,0,0,0,0,0,0,0,0,0,
+      0,0,0,0,0,0,0,0,0,0
+    ]
   };
 
-  document.getElementById('size').value = String(size);
+  puzzle = {
+    size: data.size,
+    rowClues: data.rowClues,
+    colClues: data.colClues,
+    solution: data.solution.slice(),
+    cells: Array.from({ length: data.size * data.size }, () => ({
+      mark: MARK_EMPTY, color: null
+    })),
+  };
+
+  document.getElementById('size').value = String(data.size);
   renderBoard();
-  document.getElementById('result').innerHTML = `默认谜题 <b>${size}×${size}</b>`;
+  document.getElementById('result').innerHTML = `默认谜题 <b>${data.size}×${data.size}</b>`;
 })();
 
 updateAutoPanelVisibility();
