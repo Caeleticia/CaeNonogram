@@ -265,7 +265,7 @@
   <h1>CaeNonogram</h1>
   <p class="subtitle">只是一个数织生成器</p>
   <p class="subtitle">可以在工具栏删除对应颜色的标记，所以可以不同的颜色推测</p>
-  <p class="subtitle">禁止绘制淫秽物品(?</p>
+  <p class="subtitle">禁止绘制非法作品(?</p>
 
   <div class="panel">
     <div class="row">
@@ -336,11 +336,6 @@
       <button id="autoStepBtn">帮帮我! 人机大人!</button>
       <button id="autoBtn" style="background:#f8f0ff; border-color:#d9b8ff; color:#6b3fa0;">我不做人辣!</button>
       <span id="autoPhase" class="auto-phase"></span>
-    </div>
-    <div class="auto-hint">
-      纠错<br>
-      推理一次<br>
-      解!放!双!手!
     </div>
   </div>
 
@@ -1452,12 +1447,13 @@ class HumanSolver {
   }
 }
 
-/* ---------- 自动纠错：逐格替换（不删除） ---------- */
+/* ---------- 自动纠错：一次性纠正全部错误格（不删除） ---------- */
 function autoCorrect() {
   if (!puzzle || mode !== 'play') return false;
   const { size, solution, cells } = puzzle;
 
-  // 依次检查用户填写的单元格：填错就替换为正确项（浅紫色），填对则保留
+  let corrected = false;
+  // 依次检查所有用户填写的单元格：填错替换为正确项（浅紫色），填对保留
   for (let i = 0; i < size * size; i++) {
     const cell = cells[i];
     if (cell.mark === MARK_EMPTY) continue;
@@ -1470,12 +1466,15 @@ function autoCorrect() {
       cell.mark = expectedMark;
       cell.color = 'auto_fill';   // 浅紫色
       updateCellVisual(i);
-      updateClueStyles();
-      checkSolved();
-      return true;                // 一次只纠正一个，保留节奏感
+      corrected = true;
     }
   }
-  return false;
+
+  if (corrected) {
+    updateClueStyles();
+    checkSolved();
+  }
+  return corrected;
 }
 
 function ensureSolver() {
